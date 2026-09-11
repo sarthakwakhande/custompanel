@@ -1,0 +1,20 @@
+[Unit]
+Description=Sentinel Panel
+After=network-online.target mariadb.service
+Wants=network-online.target
+[Service]
+Type=simple
+User=sentinel
+Group=sentinel
+WorkingDirectory=/opt/sentinel/app
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node --env-file=/opt/sentinel/app/.env /opt/sentinel/app/dist/server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/sentinel/app
+[Install]
+WantedBy=multi-user.target

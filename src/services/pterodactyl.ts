@@ -1,0 +1,9 @@
+import type { Config } from '../config.js';
+export class PterodactylError extends Error { constructor(public statusCode:number,public safeMessage:string){super(safeMessage);} }
+/** All outbound requests are pinned to configured HTTPS origin; paths are route constants, never browser URLs. */
+export class PterodactylGateway { constructor(private readonly c:Config){}
+ application(path:string,init:RequestInit={}) { return this.request('/api/application'+path,this.c.PTERODACTYL_APPLICATION_KEY,init); }
+ client(path:string,init:RequestInit={}) { return this.request('/api/client'+path,this.c.PTERODACTYL_CLIENT_KEY,init); }
+ async testConnection(){return this.application('/application/users?per_page=1');}
+ private async request(path:string,key:string,init:RequestInit){if(!path.startsWith('/'))throw new Error('Invalid API path'); const abort=new AbortController(), timer=setTimeout(()=>abort.abort(),10_000); try { const response=await fetch(new URL(path,this.c.PTERODACTYL_URL),{...init,signal:abort.signal,headers:{Accept:'Application/vnd.pterodactyl.v1+json',Authorization:`Bearer ${key}`,...init.headers}}); if(!response.ok){const map:Record<number,string>={401:'Pterodactyl rejected panel credentials',403:'Pterodactyl denied this operation',404:'Pterodactyl resource was not found',409:'Pterodactyl reported a conflict',422:'Pterodactyl rejected validation',429:'Pterodactyl rate limit reached'};throw new PterodactylError(response.status>=500?502:response.status,map[response.status]||'Pterodactyl request failed');} return response.status===204?null:await response.json(); } catch(e){if(e instanceof PterodactylError)throw e; if((e as Error).name==='AbortError')throw new PterodactylError(504,'Pterodactyl timed out');throw new PterodactylError(502,'Pterodactyl is unavailable');} finally{clearTimeout(timer);} }
+}
